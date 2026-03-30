@@ -12,12 +12,14 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = BASE_DIR / "data" / "proverbi.jsonl"
 STORAGE_DIR = BASE_DIR / "storage"
+CACHE_DIR = BASE_DIR / "storage"
 INDEX_PATH = STORAGE_DIR / "faiss.index"
 METADATA_PATH = STORAGE_DIR / "metadata.json"
 
 # Modello locale multilingua, buono per FR/IT e testi brevi
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-model = TextEmbedding(model_name=MODEL_NAME)
+model = TextEmbedding(model_name=MODEL_NAME,
+                    cache_dir = CACHE_DIR)
 
 
 def load_jsonl(path: Path) -> List[Dict]:

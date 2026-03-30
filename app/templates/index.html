@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="it">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,33 +15,37 @@
         <div class="logo">DI</div>
         <div>
           <h1>Digourd-IA</h1>
-          <p>L’experte des proverbes</p>
+          <p>L'esperta dei proverbi</p>
+        </div>
+        <div class="lang-switcher">
+          <button class="lang-btn active" data-lang="it" onclick="setLang('it')">🇮🇹</button>
+          <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">🇫🇷</button>
         </div>
       </div>
 
-      <div class="info-card">
-        <h2>À propos</h2>
+      <div class="info-card about">
+        <h2>Chi sono</h2>
         <p>
-          Digourd-IA retrouve des proverbes en patois, leurs traductions et
-          leur sens à partir de votre question.
+          Digourd-IA recupera proverbi in patois, le loro traduzioni e il loro
+          significato a partire dalla tua domanda.
         </p>
       </div>
 
-      <div class="info-card">
-        <h2>Exemples</h2>
-        <button class="example-btn" onclick="fillExample('Je cherche un proverbe sur la patience')">Patience</button>
-        <button class="example-btn" onclick="fillExample('Je veux un proverbe sur la richesse et la destinée')">Richesse</button>
-        <button class="example-btn" onclick="fillExample('Trouve un proverbe sur les choses certaines contre les promesses')">Certitude</button>
+      <div class="info-card examples">
+        <h2>Esempi</h2>
+        <button class="example-btn" onclick="fillExample('Cerco un proverbio sulla pazienza')">Pazienza</button>
+        <button class="example-btn" onclick="fillExample('Voglio un proverbio sulla ricchezza e il destino')">Ricchezza</button>
+        <button class="example-btn" onclick="fillExample('Trova un proverbio sulle cose certe contro le promesse')">Certezza</button>
       </div>
     </aside>
 
     <section class="chat-panel">
       <header class="chat-header">
         <div>
-          <h2>Parlez avec Digourd-IA</h2>
-          <p>Posez une question en langage naturel.</p>
+          <h2>Parla con Digourd-IA</h2>
+          <p>Fai una domanda in linguaggio naturale.</p>
         </div>
-        <div class="status-pill">● En ligne</div>
+        <div class="status-pill">● Online</div>
       </header>
 
       <div id="chat" class="chat-messages"></div>
@@ -49,10 +53,10 @@
       <div class="composer">
         <textarea
           id="message"
-          placeholder="Ex. : Je cherche un proverbe sur le fait qu’après la pluie vient le beau temps"
+          placeholder="Es.: Cerco un proverbio sul fatto che dopo la pioggia viene il sole"
         ></textarea>
         <div class="composer-actions">
-          <button id="sendBtn" onclick="sendMessage()">Envoyer</button>
+          <button id="sendBtn" onclick="sendMessage()">Invia</button>
         </div>
       </div>
     </section>

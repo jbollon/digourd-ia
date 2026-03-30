@@ -16,6 +16,7 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STORAGE_DIR = BASE_DIR / "storage"
+CACHE_DIR = BASE_DIR / "storage"
 INDEX_PATH = STORAGE_DIR / "faiss.index"
 METADATA_PATH = STORAGE_DIR / "metadata.json"
 
@@ -25,7 +26,8 @@ MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBED_MODEL = os.getenv("EMBED_MODEL",  MODEL_NAME)
 
 anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-embedder = TextEmbedding(model_name=EMBED_MODEL)
+embedder = TextEmbedding(model_name=EMBED_MODEL,
+                         cache_dir=CACHE_DIR)
 
 
 def normalize(text: str) -> str:
@@ -83,18 +85,19 @@ Comune: {item['comune']}
             )
         return "\n\n".join(chunks)
 
-    def generate_answer(self, user_query: str, retrieved_items: List[Dict[str, Any]]) -> str:
+    def generate_answer(self, user_query: str, retrieved_items: List[Dict[str, Any]], history: List[dict] = []) -> str:
         context = self.format_context(retrieved_items)
         user_prompt = build_user_prompt(user_query, context)
+
+        # Costruiamo i messaggi: storia precedente + nuovo turno
+        messages = history + [{"role": "user", "content": user_prompt}]
 
         response = anthropic_client.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=700,
             temperature=0.2,
             system=SYSTEM_PROMPT,
-            messages=[
-                {"role": "user", "content": user_prompt}
-            ],
+            messages=messages,
         )
 
         parts = []

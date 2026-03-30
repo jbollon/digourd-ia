@@ -27,10 +27,9 @@ templates = Jinja2Templates(directory="app/templates")
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-
 @app.post("/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest) -> ChatResponse:
     retrieved = rag.retrieve(payload.message)
-    answer = rag.generate_answer(payload.message, retrieved)
+    answer = rag.generate_answer(payload.message, retrieved, payload.history or [])
     docs = [RetrievedDoc(**item) for item in retrieved]
     return ChatResponse(answer=answer, retrieved=docs)
