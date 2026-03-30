@@ -6,4 +6,4 @@ storage/faiss.index
 storage/metadata.json
 *.pdf
 *.json
-*-jsonl
+*.jsonl
