@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+storage/faiss.index
+storage/metadata.json
+*.pdf
+*.json
+*-jsonl
