@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digourd-IA</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="page-bg"></div>
+
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-card">
+        <div class="logo">DI</div>
+        <div>
+          <h1>Digourd-IA</h1>
+          <p>L’experte des proverbes</p>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <h2>À propos</h2>
+        <p>
+          Digourd-IA retrouve des proverbes en patois, leurs traductions et
+          leur sens à partir de votre question.
+        </p>
+      </div>
+
+      <div class="info-card">
+        <h2>Exemples</h2>
+        <button class="example-btn" onclick="fillExample('Je cherche un proverbe sur la patience')">Patience</button>
+        <button class="example-btn" onclick="fillExample('Je veux un proverbe sur la richesse et la destinée')">Richesse</button>
+        <button class="example-btn" onclick="fillExample('Trouve un proverbe sur les choses certaines contre les promesses')">Certitude</button>
+      </div>
+    </aside>
+
+    <section class="chat-panel">
+      <header class="chat-header">
+        <div>
+          <h2>Parlez avec Digourd-IA</h2>
+          <p>Posez une question en langage naturel.</p>
+        </div>
+        <div class="status-pill">● En ligne</div>
+      </header>
+
+      <div id="chat" class="chat-messages"></div>
+
+      <div class="composer">
+        <textarea
+          id="message"
+          placeholder="Ex. : Je cherche un proverbe sur le fait qu’après la pluie vient le beau temps"
+        ></textarea>
+        <div class="composer-actions">
+          <button id="sendBtn" onclick="sendMessage()">Envoyer</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
