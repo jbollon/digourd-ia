@@ -42,6 +42,20 @@ const i18n = {
 
 let currentLang = "it";
 
+// ── Conversation history ──────────────────────────────────────────────────────
+// Ogni elemento: { role: "user" | "assistant", content: string }
+// Limitata agli ultimi MAX_HISTORY turni per non sforare il context window
+const MAX_HISTORY = 10;
+let conversationHistory = [];
+
+function pushHistory(role, content) {
+  conversationHistory.push({ role, content });
+  // Tronca: tieni solo gli ultimi MAX_HISTORY messaggi (coppie user+assistant)
+  if (conversationHistory.length > MAX_HISTORY) {
+    conversationHistory = conversationHistory.slice(-MAX_HISTORY);
+  }
+}
+
 function setLang(lang) {
   currentLang = lang;
   const t = i18n[lang];
@@ -96,20 +110,46 @@ function addMessage(role, html) {
 
 /**
  * Converte il testo grezzo di Claude in HTML sicuro.
- * DEVE essere chiamata sul testo grezzo, PRIMA di escapeHtml.
+ * DEVE essere chiamata sul testo grezzo, PRIMA di qualsiasi escapeHtml.
  *
- *  - parti normali → escapeHtml + newline → <br>
- *  - ((patois))    → ⚫🔴 "patois" in corsivo
+ * Riconosce tre marker tipizzati:
+ *   ((patois: testo))  →  ⚫🔴 "testo"  (corsivo)
+ *   ((fr: testo))      →  🇫🇷 "testo"   (corsivo)
+ *   ((it: testo))      →  🇮🇹 "testo"   (corsivo)
+ *
+ * I marker consecutivi vengono raggruppati in un .proverb-block
+ * senza righe vuote tra loro.
  */
 function formatAnswer(rawText) {
-  const parts = rawText.split(/\*\*(.+?)\*\*/g);
-  return parts.map(part => {
-    const match = part.match(/^(.+?)$/);
+  const parts = rawText.split(/(\(\((?:patois|fr|it):[^)]*\)\))/g);
+  const PREFIX = { patois: "⚫🔴", fr: "🇫🇷", it: "🇮🇹" };
+
+  let html = "";
+  let inBlock = false;
+
+  for (const part of parts) {
+    const match = part.match(/^\(\((patois|fr|it):\s*(.*?)\)\)$/s);
     if (match) {
-      return `⚫🔴 <em>${escapeHtml(match[1])}</em>`;
+      const type = match[1];
+      const text = escapeHtml(match[2].trim());
+      if (!inBlock) {
+        html += '<div class="proverb-block">';
+        inBlock = true;
+      }
+      html += `<div class="proverb-line">${PREFIX[type]} <em>"${text}"</em></div>`;
+    } else {
+      if (inBlock) {
+        html += "</div>";
+        inBlock = false;
+      }
+      html += escapeHtml(part)
+        .replace(/\n{2,}/g, "<br><br>")
+        .replace(/\n/g, "<br>");
     }
-    return escapeHtml(part).replace(/\n/g, "<br>");
-  }).join("");
+  }
+
+  if (inBlock) html += "</div>";
+  return html;
 }
 
 // ── Send ─────────────────────────────────────────────────────────────────────
@@ -134,10 +174,17 @@ async function sendMessage() {
     const response = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message })
+      body: JSON.stringify({
+        message,
+        history: conversationHistory   // ← invia la storia al backend
+      })
     });
 
     const data = await response.json();
+
+    // Aggiorna la storia con questo turno
+    pushHistory("user", message);
+    pushHistory("assistant", data.answer);
 
     // formatAnswer lavora sul testo grezzo — niente escapeHtml prima!
     typingEl.innerHTML = `<strong>Digourd-IA</strong><br>${formatAnswer(data.answer)}`;
