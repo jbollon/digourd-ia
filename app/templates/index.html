@@ -1,67 +1,286 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Digourd-IA</title>
-  <link rel="stylesheet" href="/static/style.css" />
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary:                  "#84120c",
+            "on-primary":             "#ffffff",
+            "primary-container":      "#a62c21",
+            "on-primary-container":   "#ffc2b9",
+            secondary:                "#934b00",
+            "on-secondary":           "#ffffff",
+            "secondary-container":    "#fd9844",
+            "secondary-fixed":        "#ffdcc5",
+            "on-secondary-fixed":     "#301400",
+            "on-secondary-fixed-variant": "#703800",
+            tertiary:                 "#573b32",
+            "on-tertiary":            "#ffffff",
+            "tertiary-container":     "#715248",
+            "on-tertiary-container":  "#f1c7bb",
+            surface:                  "#fcf9f4",
+            "on-surface":             "#1c1c19",
+            "surface-variant":        "#e5e2dd",
+            "on-surface-variant":     "#59413e",
+            "surface-container":      "#f0ede8",
+            "surface-container-low":  "#f6f3ee",
+            "surface-container-high": "#ebe8e3",
+            "surface-container-lowest":"#ffffff",
+            "surface-container-highest":"#e5e2dd",
+            outline:                  "#8c716c",
+            "outline-variant":        "#e0bfba",
+            "inverse-surface":        "#31302d",
+            "inverse-on-surface":     "#f3f0eb",
+          },
+          fontFamily: {
+            serif:   ["Noto Serif", "serif"],
+            sans:    ["Manrope", "sans-serif"],
+            body:    ["Manrope", "sans-serif"],
+            headline:["Noto Serif", "serif"],
+          },
+        },
+      },
+    };
+  </script>
+
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    body { min-height: 100dvh; font-family: "Manrope", sans-serif; }
+    .material-symbols-outlined {
+      font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    }
+  </style>
 </head>
-<body>
-  <div class="page-bg"></div>
 
-  <main class="app-shell">
-    <aside class="sidebar">
-      <div class="brand-card">
-        <div class="logo">DI</div>
-        <div>
-          <h1>Digourd-IA</h1>
-          <p>L'esperta dei proverbi</p>
-        </div>
-        <div class="lang-switcher">
-          <button class="lang-btn active" data-lang="it" onclick="setLang('it')">🇮🇹</button>
-          <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">🇫🇷</button>
-        </div>
-      </div>
+<body class="bg-surface text-on-surface">
+<div class="stage-grain"></div>
+<!-- radial bg accents -->
+<div class="fixed inset-0 pointer-events-none" style="background: radial-gradient(circle at 0% 0%, rgba(132,18,12,0.05) 0%, transparent 50%)"></div>
 
-      <div class="info-card about">
-        <h2>Chi sono</h2>
-        <p>
-          Digourd-IA recupera proverbi in patois, le loro traduzioni e il loro
-          significato a partire dalla tua domanda.
-        </p>
-      </div>
+<!-- ═══════════════════════════════════════════════
+     SCREEN 1 — CHAT
+═══════════════════════════════════════════════ -->
+<div id="screen-chat" class="screen active min-h-dvh">
 
-      <div class="info-card examples">
-        <h2>Esempi</h2>
-        <button class="example-btn" onclick="fillExample('Cerco un proverbio sulla pazienza')">Pazienza</button>
-        <button class="example-btn" onclick="fillExample('Voglio un proverbio sulla ricchezza e il destino')">Ricchezza</button>
-        <button class="example-btn" onclick="fillExample('Trova un proverbio sulle cose certe contro le promesse')">Certezza</button>
-      </div>
-    </aside>
+  <!-- TopAppBar -->
+  <header class="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-6 h-16 bg-surface/80 backdrop-blur-md border-b border-outline-variant/20">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary text-2xl">theater_comedy</span>
+      <span class="font-serif italic text-2xl text-primary tracking-tighter">Digourd-IA</span>
+    </div>
+    <button id="lang-btn" onclick="toggleLang()" class="text-sm font-bold text-on-surface-variant hover:bg-surface-variant/50 px-4 py-1.5 rounded-full transition-colors border border-outline-variant">
+      IT
+    </button>
+  </header>
 
-    <section class="chat-panel">
-      <header class="chat-header">
-        <div>
-          <h2>Parla con Digourd-IA</h2>
-          <p>Fai una domanda in linguaggio naturale.</p>
-        </div>
-        <div class="status-pill">● Online</div>
-      </header>
+  <!-- Chat messages -->
+  <main id="chat-messages" class="flex-1 mt-16 mb-44 px-4 max-w-2xl mx-auto w-full flex flex-col gap-4 py-6 hide-scrollbar overflow-y-auto">
 
-      <div id="chat" class="chat-messages"></div>
-
-      <div class="composer">
-        <textarea
-          id="message"
-          placeholder="Es.: Cerco un proverbio sul fatto che dopo la pioggia viene il sole"
-        ></textarea>
-        <div class="composer-actions">
-          <button id="sendBtn" onclick="sendMessage()">Invia</button>
-        </div>
-      </div>
+    <!-- Greeting -->
+    <section class="space-y-1 py-4">
+      <h1 id="greeting-title" class="text-4xl font-serif tracking-tight">Bondzor!</h1>
+      <p id="greeting-sub" class="text-xl text-on-surface-variant font-serif italic">Cosa vuoi scoprire oggi?</p>
     </section>
+
+    <!-- Quick chips -->
+    <div id="quick-chips" class="flex flex-wrap gap-2">
+      <button class="chip bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-full text-sm font-bold transition-all"
+              onclick="fillMessage(this.dataset.text)" data-text="">Un proverbio sull'inverno</button>
+      <button class="chip bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-full text-sm font-bold transition-all"
+              onclick="fillMessage(this.dataset.text)" data-text="">Un proverbio sulla pazienza</button>
+      <button class="chip bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-full text-sm font-bold transition-all"
+              onclick="fillMessage(this.dataset.text)" data-text="">Un proverbio sulla ricchezza</button>
+    </div>
+
+    <!-- Messages injected here by JS -->
   </main>
 
-  <script src="/static/app.js"></script>
+  <!-- Floating input -->
+  <div class="fixed bottom-24 left-0 w-full px-4 flex justify-center z-30">
+    <div class="w-full max-w-2xl bg-white/90 backdrop-blur-xl rounded-full p-1.5 flex items-center gap-2 shadow-2xl border border-outline/10 focus-within:ring-2 ring-primary/20 transition-all">
+      <input id="message-input"
+             class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-on-surface-variant/50 font-body px-5 py-2.5 text-base"
+             placeholder="Scrivi un messaggio…"
+             type="text"/>
+      <button id="send-btn" onclick="sendMessage()"
+              class="w-11 h-11 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 active:scale-90 transition-all shadow-md disabled:opacity-40">
+        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">send</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- BottomNav -->
+  <nav class="fixed bottom-0 left-0 w-full z-40 flex justify-around items-end px-4 pb-6 pt-3 bg-surface/95 border-t border-outline/5 rounded-t-[28px] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+    <button onclick="showScreen('chat')" class="nav-btn flex flex-col items-center gap-1">
+      <div id="nav-chat-pill" class="bg-primary/10 text-primary rounded-2xl px-6 py-2 transition-all">
+        <span class="material-symbols-outlined block" style="font-variation-settings:'FILL' 1">chat_bubble</span>
+      </div>
+      <span id="nav-chat-label" class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Chat</span>
+    </button>
+    <button onclick="showScreen('saved')" class="nav-btn flex flex-col items-center gap-1 opacity-50 hover:opacity-100 transition-opacity">
+      <div class="px-6 py-2">
+        <span class="material-symbols-outlined block text-on-surface">bookmark</span>
+      </div>
+      <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface">Saved</span>
+    </button>
+  </nav>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 2 — SAVED
+═══════════════════════════════════════════════ -->
+<div id="screen-saved" class="screen min-h-dvh">
+
+  <header class="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-6 h-16 bg-surface/80 backdrop-blur-md border-b border-outline-variant/20">
+    <div class="flex items-center gap-3">
+      <span class="material-symbols-outlined text-primary">theater_comedy</span>
+      <span class="font-serif italic text-2xl text-primary tracking-tighter">Digourd-IA</span>
+    </div>
+    <span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Proverbi Salvati</span>
+  </header>
+
+  <main class="mt-16 mb-24 px-6 max-w-4xl mx-auto py-8">
+    <!-- Spotlight blobs -->
+    <div class="fixed top-[-10%] right-[-10%] w-96 h-96 bg-secondary-container opacity-5 blur-[120px] rounded-full pointer-events-none"></div>
+    <div class="fixed bottom-[-10%] left-[-10%] w-96 h-96 bg-primary opacity-5 blur-[120px] rounded-full pointer-events-none"></div>
+
+    <div class="mb-10 space-y-2">
+      <h2 class="font-serif text-4xl tracking-tight">Le Vôtre Repertouère</h2>
+      <p class="text-on-surface-variant italic text-sm">I proverbi che hai salvato</p>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="flex gap-3 mb-8 overflow-x-auto pb-2 hide-scrollbar">
+      <button class="bg-secondary-fixed text-on-secondary-fixed px-5 py-2 rounded-full text-sm font-bold flex-shrink-0">Tôit lo mòndo</button>
+    </div>
+
+    <!-- Cards grid -->
+    <div id="saved-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Populated by JS -->
+    </div>
+
+    <div id="saved-empty" class="hidden text-center py-20 text-on-surface-variant">
+      <span class="material-symbols-outlined text-5xl block mb-4 opacity-30">bookmark</span>
+      <p class="font-serif italic text-lg">Nessun proverbio salvato ancora.</p>
+      <p class="text-sm mt-2 opacity-70">Vai nella chat e salva i proverbi che ti piacciono!</p>
+    </div>
+  </main>
+
+  <nav class="fixed bottom-0 left-0 w-full z-40 flex justify-around items-end px-4 pb-6 pt-3 bg-surface/95 border-t border-outline/5 rounded-t-[28px]">
+    <button onclick="showScreen('chat')" class="flex flex-col items-center gap-1 opacity-50 hover:opacity-100 transition-opacity">
+      <div class="px-6 py-2">
+        <span class="material-symbols-outlined block text-on-surface">chat_bubble</span>
+      </div>
+      <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface">Chat</span>
+    </button>
+    <button onclick="showScreen('saved')" class="flex flex-col items-center gap-1">
+      <div class="bg-primary/10 text-primary rounded-2xl px-6 py-2 transition-all">
+        <span class="material-symbols-outlined block" style="font-variation-settings:'FILL' 1">bookmark</span>
+      </div>
+      <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Saved</span>
+    </button>
+  </nav>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 3 — RESULT (detail di un proverbio)
+═══════════════════════════════════════════════ -->
+<div id="screen-result" class="screen min-h-dvh">
+
+  <header class="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-6 h-16 bg-surface/80 backdrop-blur-md border-b border-outline-variant/20">
+    <div class="flex items-center gap-3">
+      <button onclick="goBackFromResult()" class="p-2 hover:bg-surface-variant/50 rounded-full transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+      </button>
+      <span class="material-symbols-outlined text-primary">theater_comedy</span>
+      <span class="font-serif italic text-2xl text-primary tracking-tighter">Digourd-IA</span>
+    </div>
+    <button onclick="toggleLang()" class="text-sm font-bold text-on-surface-variant hover:bg-surface-variant/50 px-4 py-1.5 rounded-full border border-outline-variant">
+      IT
+    </button>
+  </header>
+
+  <main class="mt-16 mb-28 px-6 max-w-2xl mx-auto py-8 space-y-6">
+
+    <!-- Main proverb card -->
+    <div class="bg-surface-container-low rounded-[2rem] p-8 relative overflow-hidden">
+      <div class="absolute -top-20 -right-20 w-56 h-56 bg-secondary-container opacity-10 blur-[80px] rounded-full pointer-events-none"></div>
+      <p class="text-secondary text-xs font-bold uppercase tracking-[0.2em] mb-4">Le Proverbe</p>
+      <h2 id="result-patois" class="font-serif text-3xl md:text-4xl font-bold italic leading-tight text-on-surface mb-6"></h2>
+      <div class="space-y-3 pt-6 border-t border-dashed border-outline-variant">
+        <div class="flex items-start gap-3">
+          <span class="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold mt-1 shrink-0">FR</span>
+          <p id="result-fr" class="text-on-surface-variant italic leading-relaxed"></p>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="bg-secondary/10 text-secondary px-2 py-0.5 rounded text-[10px] font-bold mt-1 shrink-0">IT</span>
+          <p id="result-it" class="text-on-surface-variant italic leading-relaxed"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI comment bubble -->
+    <div class="bg-surface-container-high rounded-xl p-6 relative">
+      <div class="flex gap-4 items-start">
+        <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-white text-xl" style="font-variation-settings:'FILL' 1">auto_awesome</span>
+        </div>
+        <div>
+          <p class="text-xs font-bold text-on-surface-variant opacity-60 uppercase tracking-widest mb-2">Digourd-IA murmura...</p>
+          <p id="result-comment" class="text-on-surface leading-relaxed"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta chip -->
+    <div id="result-comune" class="inline-flex items-center gap-2 bg-tertiary-container/40 text-tertiary px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider"></div>
+
+    <!-- Actions -->
+    <div class="flex flex-col sm:flex-row gap-3 pt-2">
+      <button id="result-save-btn" onclick="toggleSaveFromResult()"
+              class="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-primary text-white rounded-full font-bold shadow-lg hover:bg-primary/90 active:scale-95 transition-all">
+        <span class="material-symbols-outlined">bookmark</span>
+        <span id="result-save-label">Salva il proverbio</span>
+      </button>
+      <button onclick="shareProverb()"
+              class="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-surface-container-highest text-on-surface rounded-full font-bold hover:bg-surface-variant transition-colors active:scale-95">
+        <span class="material-symbols-outlined">share</span>
+        Condividi
+      </button>
+    </div>
+  </main>
+
+  <nav class="fixed bottom-0 left-0 w-full z-40 flex justify-around items-end px-4 pb-6 pt-3 bg-surface/95 border-t border-outline/5 rounded-t-[28px]">
+    <button onclick="showScreen('chat')" class="flex flex-col items-center gap-1 opacity-50 hover:opacity-100 transition-opacity">
+      <div class="px-6 py-2">
+        <span class="material-symbols-outlined block text-on-surface">chat_bubble</span>
+      </div>
+      <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface">Chat</span>
+    </button>
+    <button onclick="showScreen('saved')" class="flex flex-col items-center gap-1 opacity-50 hover:opacity-100 transition-opacity">
+      <div class="px-6 py-2">
+        <span class="material-symbols-outlined block text-on-surface">bookmark</span>
+      </div>
+      <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface">Saved</span>
+    </button>
+  </nav>
+</div>
+
+<script src="/static/app.js"></script>
 </body>
 </html>

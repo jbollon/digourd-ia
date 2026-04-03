@@ -7,3 +7,4 @@ storage/metadata.json
 *.pdf
 *.json
 *.jsonl
+storage/*
