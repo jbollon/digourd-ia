@@ -11,7 +11,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastembed import TextEmbedding
 
-from app.prompts import SYSTEM_PROMPT, build_user_prompt
+from app.prompts import SYSTEM_PROMPT, build_user_prompt, build_user_prompt_with_vocab
 
 load_dotenv()
 
@@ -21,8 +21,10 @@ CACHE_DIR   = STORAGE_DIR
 
 INDEX_PATH       = STORAGE_DIR / "faiss.index"
 METADATA_PATH    = STORAGE_DIR / "metadata.json"
-VOCAB_INDEX_PATH = STORAGE_DIR / "vocab.index"
-VOCAB_META_PATH  = STORAGE_DIR / "vocab_metadata.json"
+VOCAB_INDEX_PATH   = STORAGE_DIR / "vocab.index"
+VOCAB_META_PATH    = STORAGE_DIR / "vocab_metadata.json"
+SONGS_INDEX_PATH   = STORAGE_DIR / "canzoni.index"
+SONGS_META_PATH    = STORAGE_DIR / "canzoni_metadata.json"
 
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
 TOP_K        = int(os.getenv("TOP_K", "3"))
@@ -74,6 +76,15 @@ class ProverbsRAG:
         else:
             print("WARNING: indice vocabolario non trovato. "
                   "Esegui: python scripts/build_vocab_index.py")
+
+        self._songs_index: Any = None
+        self._songs_meta: List[Dict] = []
+        if SONGS_INDEX_PATH.exists() and SONGS_META_PATH.exists():
+            self._songs_index = faiss.read_index(str(SONGS_INDEX_PATH))
+            self._songs_meta  = json.loads(SONGS_META_PATH.read_text(encoding="utf-8"))
+        else:
+            print("WARNING: indice canzoni non trovato. "
+                  "Esegui: python scripts/build_songs_index.py")
 
     def _embed(self, text: str) -> np.ndarray:
         vec = np.array(
@@ -138,6 +149,37 @@ class ProverbsRAG:
 
         return merged[:top_k]
 
+    def retrieve_songs(self, query: str, top_k: int = 2) -> List[Dict[str, Any]]:
+        if self._songs_index is None:
+            return []
+        scores, indices = self._songs_index.search(self._embed(query), top_k)
+        results = []
+        for score, idx in zip(scores[0], indices[0]):
+            if idx == -1:
+                continue
+            item = self._songs_meta[idx].copy()
+            item["score"] = float(score)
+            results.append(item)
+        # Restituisce solo canzoni con score sufficiente a essere rilevanti
+        return [r for r in results if r["score"] > 0.3]
+
+    @staticmethod
+    def format_songs_context(items: List[Dict[str, Any]]) -> str:
+        if not items:
+            return ""
+        chunks = []
+        for item in items:
+            strofe = "\n".join(
+                f'  Patois: "{s["patois"]}"\n  Italiano: "{s["it"]}"'
+                for s in item.get("strofe", [])
+            )
+            chunks.append(
+                f'Canzone: "{item["titolo"]}" — {item["artista"]}\n'
+                f'Descrizione: {item["descrizione"]}\n'
+                f'Strofe:\n{strofe}'
+            )
+        return "\n\n".join(chunks)
+
     def retrieve_vocab(self, query: str, top_k: int = VOCAB_TOP_K) -> List[Dict[str, Any]]:
         if self._vocab_index is None:
             return []
@@ -185,6 +227,55 @@ class ProverbsRAG:
                     f'(uso: {item.get("uso","")})'
                 )
         return "\n".join(lines)
+
+    def generate_daily_comment(self, item: Dict[str, Any]) -> str:
+        """Genera un commento breve di Digourd-IA per il proverbio del giorno."""
+        prompt = (
+            f"Il proverbio del giorno è:\n"
+            f"Patois: {item['patois']}\n"
+            f"Francese: {item['fr']}\n"
+            f"Italiano: {item['it']}\n\n"
+            f"Scrivi un commento su questo proverbio (massimo 3 frasi), "
+            f"nel tuo stile teatrale, ironico e colorito da valdostana d'altri tempi. "
+            f"Non ripetere il testo del proverbio. Rispondi in italiano."
+        )
+        response = anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=300,
+            temperature=0.7,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return "\n".join(
+            block.text for block in response.content
+            if getattr(block, "type", None) == "text"
+        ).strip()
+
+    def stream_answer(
+        self,
+        user_query: str,
+        retrieved_items: List[Dict[str, Any]],
+        history: List[dict] = [],
+        retrieved_songs: List[Dict[str, Any]] = [],
+    ):
+        """Genera la risposta in streaming con una singola chiamata Claude."""
+        context       = self.format_context(retrieved_items)
+        songs_context = self.format_songs_context(retrieved_songs)
+        vocab_items   = self.retrieve_vocab(user_query)
+        vocab_context = self.format_vocab(vocab_items)
+        user_prompt   = build_user_prompt_with_vocab(user_query, context, vocab_context, songs_context)
+
+        messages = (history or []) + [{"role": "user", "content": user_prompt}]
+
+        with anthropic_client.messages.stream(
+            model=CLAUDE_MODEL,
+            max_tokens=800,
+            temperature=0.4,
+            system=SYSTEM_PROMPT,
+            messages=messages,
+        ) as stream:
+            for text in stream.text_stream:
+                yield text
 
     def generate_answer(
         self,

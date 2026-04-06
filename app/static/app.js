@@ -125,6 +125,9 @@ function fillMessage(text) {
  * html = versione già renderizzata per il bubble chat
  */
 function parseAnswer(rawText) {
+  // Rimuove il grassetto markdown che Claude aggiunge alle parole di vocabolario
+  rawText = rawText.replace(/\*\*(.+?)\*\*/gs, "$1");
+
   const patoisMatch = rawText.match(/\(\(patois:\s*(.*?)\)\)/s);
   const frMatch     = rawText.match(/\(\(fr:\s*(.*?)\)\)/s);
   const itMatch     = rawText.match(/\(\(it:\s*(.*?)\)\)/s);
@@ -138,25 +141,47 @@ function parseAnswer(rawText) {
     .replace(/\(\(patois:.*?\)\)/s, "")
     .replace(/\(\(fr:.*?\)\)/s, "")
     .replace(/\(\(it:.*?\)\)/s, "")
+    .replace(/\(\(canzone:.*?\)\)/s, "")
+    .replace(/\(\(strofa_patois:.*?\)\)/s, "")
+    .replace(/\(\(strofa_it:.*?\)\)/s, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
 
   // HTML per il bubble
-  const parts = rawText.split(/(\(\((?:patois|fr|it):[^)]*\)\))/g);
+  const ALL_MARKERS = /(\(\((?:patois|fr|it|canzone|strofa_patois|strofa_it):[^)]*\)\))/g;
+  const parts = rawText.split(ALL_MARKERS);
   const PREFIX = { patois: "⚫🔴", fr: "🇫🇷", it: "🇮🇹" };
   let html = "";
   let inBlock = false;
+  let inSong = false;
   for (const part of parts) {
-    const m = part.match(/^\(\((patois|fr|it):\s*(.*?)\)\)$/s);
-    if (m) {
+    const mProverb = part.match(/^\(\((patois|fr|it):\s*(.*?)\)\)$/s);
+    const mSong    = part.match(/^\(\((canzone|strofa_patois|strofa_it):\s*(.*?)\)\)$/s);
+    if (mProverb) {
+      if (inSong) { html += "</div>"; inSong = false; }
       if (!inBlock) { html += '<div class="proverb-block">'; inBlock = true; }
-      html += `<div class="proverb-line">${PREFIX[m[1]]} <em>"${escapeHtml(m[2].trim())}"</em></div>`;
-    } else {
+      html += `<div class="proverb-line">${PREFIX[mProverb[1]]} <em>"${escapeHtml(mProverb[2].trim())}"</em></div>`;
+    } else if (mSong) {
       if (inBlock) { html += "</div>"; inBlock = false; }
+      if (mSong[1] === "canzone") {
+        if (inSong) html += "</div>";
+        html += `<div class="song-block"><div class="song-title">🎵 ${escapeHtml(mSong[2].trim())}</div>`;
+        inSong = true;
+      } else if (mSong[1] === "strofa_patois") {
+        html += `<div class="song-line patois-line"><em>"${escapeHtml(mSong[2].trim())}"</em></div>`;
+      } else if (mSong[1] === "strofa_it") {
+        html += `<div class="song-line it-line">${escapeHtml(mSong[2].trim())}</div>`;
+      }
+    } else {
+      if (inBlock && !part.trim()) continue;
+      if (inBlock) { html += "</div>"; inBlock = false; }
+      if (inSong && !part.trim()) continue;
+      if (inSong) { html += "</div>"; inSong = false; }
       html += escapeHtml(part).replace(/\n+/g, "<br>");
     }
   }
   if (inBlock) html += "</div>";
+  if (inSong)  html += "</div>";
 
   return { patois, fr, it, comment, html };
 }
@@ -208,6 +233,64 @@ function addBubble(role, htmlContent, proverbData = null) {
   return wrap;
 }
 
+const THINKING_PHRASES = [
+  "Donque... fé-me tsertchì seu pe le vioù livro... Mondjeu, véo de poussa!",
+  "Mmm, senque diyè dza pappagran...",
+  "Atèn, atèn, n'i quetsousa seu...",
+  "Le proverbe de no s-atre, tenzentèn, se catson fran amoddo...",
+  "Vou tchertchì deun la mémouée di noutro vioù...",
+  "Eun momàn, dimando i savèn di veulladzo...",
+  "èita-lo! Na atèn... si l'è eugn atro... que nerveu!"
+];
+
+function startThinkingAnimation(el) {
+  let phraseIdx = Math.floor(Math.random() * THINKING_PHRASES.length);
+  let charIdx = 0;
+  let tid = null;
+  let stopped = false;
+
+  function nextIdx() {
+    let next;
+    do { next = Math.floor(Math.random() * THINKING_PHRASES.length); }
+    while (next === phraseIdx && THINKING_PHRASES.length > 1);
+    return next;
+  }
+
+  function tick() {
+    if (stopped) return;
+    const phrase = THINKING_PHRASES[phraseIdx];
+    charIdx++;
+    el.textContent = phrase.slice(0, charIdx);
+    if (charIdx < phrase.length) {
+      tid = setTimeout(tick, 38);
+    } else {
+      tid = setTimeout(() => {
+        if (stopped) return;
+        phraseIdx = nextIdx();
+        charIdx = 0;
+        tick();
+      }, 1600);
+    }
+  }
+
+  tick();
+  return () => { stopped = true; clearTimeout(tid); };
+}
+
+function addStreamingBubble() {
+  const container = document.getElementById("chat-messages");
+  const wrap = document.createElement("div");
+  wrap.className = "flex justify-start";
+  wrap.innerHTML = `
+    <div class="max-w-[88%] bg-surface-container-low border border-outline-variant/20 px-5 py-4 rounded-2xl rounded-bl-sm shadow-sm">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-primary mb-3 opacity-80">Digourd-IA</p>
+      <p class="thinking-text text-sm italic font-serif text-on-surface-variant/60 min-h-[1.4em]"></p>
+    </div>`;
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+  return wrap;
+}
+
 function addTyping() {
   const container = document.getElementById("chat-messages");
   const wrap = document.createElement("div");
@@ -242,6 +325,22 @@ function handleSaveFromChat(proverbData) {
 }
 
 // ═══════════════════════════════════════════════
+// Chat: video buttons per le canzoni
+// ═══════════════════════════════════════════════
+function addVideoButtons(bubbleWrap, songs) {
+  const inner = bubbleWrap.querySelector("div");
+  songs.forEach(song => {
+    const btn = document.createElement("a");
+    btn.href = song.video_url;
+    btn.target = "_blank";
+    btn.rel = "noopener noreferrer";
+    btn.className = "mt-3 inline-flex items-center gap-2 text-xs font-bold text-primary hover:text-primary/70 transition-colors";
+    btn.innerHTML = `<span class="material-symbols-outlined text-base" style="font-variation-settings:'FILL' 1">play_circle</span> ${escapeHtml(song.titolo)}`;
+    inner.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════
 // Chat: send message
 // ═══════════════════════════════════════════════
 async function sendMessage() {
@@ -257,25 +356,55 @@ async function sendMessage() {
   const typingEl = addTyping();
 
   try {
-    const res = await fetch("/chat", {
+    const res = await fetch("/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, history: conversationHistory }),
     });
-    const data = await res.json();
-
-    pushHistory("user", message);
-    pushHistory("assistant", data.answer);
 
     typingEl.remove();
+    const streamWrap = addStreamingBubble();
+    const thinkingEl = streamWrap.querySelector(".thinking-text");
+    const stopThinking = startThinkingAnimation(thinkingEl);
+    const thinkingStart = Date.now();
+    const MIN_THINKING_MS = 5000;
 
-    const parsed = parseAnswer(data.answer);
+    let fullText = "";
+    let retrievedDocs = null;
+    let songs = [];
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = JSON.parse(line.slice(6));
+        if (data.done) {
+          retrievedDocs = data.retrieved;
+          songs = data.songs || [];
+        } else if (data.text) {
+          fullText += data.text;
+        }
+      }
+    }
+
+    pushHistory("user", message);
+    pushHistory("assistant", fullText);
+
+    const parsed = parseAnswer(fullText);
     lastParsed = parsed;
 
-    // Build proverbData for save button if we have a proverb
     let proverbData = null;
-    if (parsed.patois && data.retrieved && data.retrieved.length > 0) {
-      const top = data.retrieved[0];
+    if (parsed.patois && retrievedDocs && retrievedDocs.length > 0) {
+      const top = retrievedDocs[0];
       proverbData = {
         id:      top.id,
         patois:  parsed.patois,
@@ -286,10 +415,17 @@ async function sendMessage() {
       };
     }
 
-    addBubble("bot", parsed.html, proverbData);
+    const elapsed = Date.now() - thinkingStart;
+    if (elapsed < MIN_THINKING_MS) {
+      await new Promise(r => setTimeout(r, MIN_THINKING_MS - elapsed));
+    }
+    stopThinking();
+    streamWrap.remove();
+    const bubbleWrap = addBubble("bot", parsed.html, proverbData);
+    if (songs.length > 0) addVideoButtons(bubbleWrap, songs);
 
   } catch (e) {
-    typingEl.remove();
+    document.getElementById("typing-indicator")?.remove();
     addBubble("bot", escapeHtml(i18n[currentLang].error));
   } finally {
     sendBtn.disabled = false;
