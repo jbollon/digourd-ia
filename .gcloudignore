@@ -1,0 +1,21 @@
+# File inviati a Cloud Build — storage/ DEVE essere incluso (contiene indice FAISS)
+.gcloudignore
+.git/
+.venv/
+__pycache__/
+*.pyc
+.env
+node_modules/
+tests/
+scripts/
+data/
+backup/
+miscellaneous/
+package.json
+package-lock.json
+tailwind.config.js
+tailwind.input.css
+app/static/icon_big.png
+app/static/icon_small.png
+todo.txt
+=0.3

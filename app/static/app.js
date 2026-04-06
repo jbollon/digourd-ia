@@ -407,6 +407,30 @@ function shareProverb() {
 }
 
 // ═══════════════════════════════════════════════
+// Proverbio del giorno
+// ═══════════════════════════════════════════════
+async function loadDailyProverb() {
+  const btn = document.getElementById("daily-btn");
+  const label = document.getElementById("daily-label");
+  const originalLabel = label.textContent;
+  btn.disabled = true;
+  label.textContent = "…";
+
+  try {
+    const res = await fetch("/api/daily");
+    const proverb = await res.json();
+    if (proverb.error) throw new Error(proverb.error);
+    openResult(proverb);
+  } catch {
+    label.textContent = i18n[currentLang].error;
+    setTimeout(() => { label.textContent = originalLabel; }, 2000);
+  } finally {
+    btn.disabled = false;
+    if (label.textContent === "…") label.textContent = originalLabel;
+  }
+}
+
+// ═══════════════════════════════════════════════
 // Enter key
 // ═══════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", () => {

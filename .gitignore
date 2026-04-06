@@ -2,9 +2,10 @@
 __pycache__/
 *.pyc
 .env
-storage/faiss.index
-storage/metadata.json
-*.pdf
-*.json
-*.jsonl
 storage/*
+data/
+*.pdf
+node_modules/
+package-lock.json
+.claude/
+*.png

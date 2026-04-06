@@ -1,5 +1,0 @@
-cronologia conversazione vera
-soglia di similarità
-filtri per regione/dialetto
-Dockerfile per Ubuntu
-frontend un po’ più bello con HTMX o React

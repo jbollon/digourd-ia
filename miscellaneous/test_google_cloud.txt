@@ -1,0 +1,143 @@
+DEPLOY DIGOURD-IA SU GOOGLE CLOUD RUN — GUIDA COMPLETA
+========================================================
+Project ID usato: digourdia0000
+Account: jbollon94@gmail.com
+Regione: europe-west1
+
+PRE-REQUISITI
+-------------
+- Account Google Cloud attivo con carta di credito verificata
+- gcloud CLI installato (sudo snap install google-cloud-cli --classic)
+- Project ID: visibile su console.cloud.google.com (in alto a sinistra)
+- API key Anthropic: da console.anthropic.com → API Keys → Create Key (inizia con sk-ant-...)
+
+
+STEP 1 — CONFIGURA GCLOUD
+--------------------------
+gcloud auth login
+gcloud config set project digourdia0000
+
+
+STEP 2 — ABILITA LE API NECESSARIE
+------------------------------------
+gcloud services enable \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  secretmanager.googleapis.com
+
+# NOTA: Cloud Build viene abilitato automaticamente al primo "gcloud builds submit".
+# Dopo l'abilitazione attendere 1-2 minuti prima di procedere (propagazione permessi).
+
+
+STEP 3 — CREA IL REGISTRO IMMAGINI E BUILDA
+--------------------------------------------
+# Crea il repository per le immagini Docker (solo la prima volta)
+gcloud artifacts repositories create digourd \
+  --repository-format=docker \
+  --location=europe-west1
+
+# Builda e carica l'immagine (eseguire dalla root del progetto ~/rag_proverbe)
+# NOTA: la prima build è lenta (~5-10 min) perché carica anche storage/ con il modello embedding
+gcloud builds submit \
+  --tag europe-west1-docker.pkg.dev/digourdia0000/digourd/app \
+  --region europe-west1
+
+# PROBLEMA NOTO: se compare "PERMISSION_DENIED" subito dopo aver abilitato Cloud Build,
+# attendere 1-2 minuti e riprovare (ritardo di propagazione GCP).
+
+# PROBLEMA NOTO: storage/ non incluso → "FileNotFoundError: Indice proverbi non trovato"
+# Soluzione: assicurarsi che .gcloudignore esista nella root del progetto e NON escluda storage/
+
+
+STEP 4 — SALVA L'API KEY COME SECRET
+--------------------------------------
+# Sostituisci sk-ant-... con la tua chiave reale da console.anthropic.com
+echo -n "sk-ant-..." | gcloud secrets create ANTHROPIC_API_KEY \
+  --data-file=- --replication-policy=automatic
+
+# PROBLEMA NOTO: se il deploy fallisce con "Permission denied on secret",
+# eseguire questo comando per dare al service account accesso al secret:
+gcloud secrets add-iam-policy-binding ANTHROPIC_API_KEY \
+  --member="serviceAccount:1074007300744-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+
+STEP 5 — DEPLOY SU CLOUD RUN (senza autenticazione)
+-----------------------------------------------------
+gcloud run deploy digourd-ia \
+  --image europe-west1-docker.pkg.dev/digourdia0000/digourd/app \
+  --region europe-west1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --memory 1Gi \
+  --set-secrets ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest \
+  --set-env-vars REQUIRE_AUTH=false
+
+# URL pubblico dell'app:
+# https://digourd-ia-1074007300744.europe-west1.run.app
+
+# Per vedere i log in caso di errore:
+gcloud logging read \
+  "resource.type=cloud_run_revision AND resource.labels.service_name=digourd-ia" \
+  --limit 30 \
+  --format "value(textPayload)" \
+  --project digourdia0000
+
+
+STEP 6 — (OPZIONALE) ATTIVARE AUTH GOOGLE PER IL TESTING
+----------------------------------------------------------
+Prima crea le credenziali OAuth:
+  1. Vai su console.cloud.google.com
+  2. API & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
+  3. Tipo: Web application
+  4. Authorized redirect URIs: https://digourd-ia-1074007300744.europe-west1.run.app/auth/callback
+  5. Salva Client ID e Client Secret
+
+Poi aggiorna il servizio con i parametri:
+gcloud run services update digourd-ia \
+  --region europe-west1 \
+  --set-env-vars \
+    REQUIRE_AUTH=true,\
+    ALLOWED_EMAIL=jbollon94@gmail.com,\
+    GOOGLE_CLIENT_ID=IL_TUO_CLIENT_ID,\
+    GOOGLE_CLIENT_SECRET=IL_TUO_CLIENT_SECRET,\
+    SESSION_SECRET=$(openssl rand -hex 32)
+
+# Per fare il logout dall'app: visita https://TUO_URL/auth/logout
+
+
+STEP 7 — APRIRE L'APP A TUTTI (rimuovere autenticazione)
+---------------------------------------------------------
+gcloud run services update digourd-ia \
+  --region europe-west1 \
+  --set-env-vars REQUIRE_AUTH=false
+
+
+AGGIORNARE L'APP DOPO MODIFICHE AL CODICE
+------------------------------------------
+# 1. Rebuilda e carica la nuova immagine
+gcloud builds submit \
+  --tag europe-west1-docker.pkg.dev/digourdia0000/digourd/app \
+  --region europe-west1
+
+# 2. Rideploya
+gcloud run deploy digourd-ia \
+  --image europe-west1-docker.pkg.dev/digourdia0000/digourd/app \
+  --region europe-west1
+
+
+COMANDI UTILI
+-------------
+# Vedere i log (richiede componente aggiuntivo — usare il comando sotto se fallisce)
+gcloud beta run services logs tail digourd-ia --region europe-west1
+
+# Alternativa log senza componenti extra
+gcloud logging read \
+  "resource.type=cloud_run_revision AND resource.labels.service_name=digourd-ia" \
+  --limit 30 --format "value(textPayload)" --project digourdia0000
+
+# Vedere lo stato del servizio
+gcloud run services describe digourd-ia --region europe-west1
+
+# Eliminare il servizio (per smettere di usarlo)
+gcloud run services delete digourd-ia --region europe-west1

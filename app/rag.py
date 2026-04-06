@@ -1,5 +1,7 @@
 import json
 import os
+import re
+import unicodedata
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -28,12 +30,31 @@ VOCAB_TOP_K  = int(os.getenv("VOCAB_TOP_K", "4"))
 MODEL_NAME   = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBED_MODEL  = os.getenv("EMBED_MODEL", MODEL_NAME)
 
+# Stopword leggere: parole che non devono attivare keyword match da sole
+_STOPWORDS = {
+    "un", "una", "il", "lo", "la", "i", "gli", "le", "di", "del", "della",
+    "dei", "degli", "delle", "a", "al", "alla", "ai", "agli", "alle", "da",
+    "dal", "dalla", "dai", "dagli", "dalle", "in", "nel", "nella", "nei",
+    "negli", "nelle", "con", "su", "per", "tra", "fra", "e", "o", "ma",
+    "che", "chi", "cui", "non", "si", "mi", "ti", "ci", "vi", "se",
+    "proverbio", "proverbi", "cerca", "trovami", "dimmi", "sai", "su",
+    "un", "une", "le", "la", "les", "de", "du", "des", "et", "ou",
+}
+
 anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 embedder = TextEmbedding(model_name=EMBED_MODEL, cache_dir=CACHE_DIR)
 
 
 def normalize(text: str) -> str:
     return " ".join(text.lower().split())
+
+
+def _strip_accents(text: str) -> str:
+    """Rimuove diacritici per confronto robusto (è→e, é→e, ecc.)."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text)
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 class ProverbsRAG:
@@ -62,16 +83,60 @@ class ProverbsRAG:
         faiss.normalize_L2(vec)
         return vec
 
-    def retrieve(self, query: str, top_k: int = TOP_K) -> List[Dict[str, Any]]:
-        scores, indices = self.index.search(self._embed(query), top_k)
+    def _keyword_search(self, query: str) -> List[Dict[str, Any]]:
+        """
+        Ricerca a keyword: restituisce i proverbi che contengono almeno un
+        token significativo della query in uno dei campi testuali.
+        Usa confronto senza accenti per robustezza.
+        """
+        tokens = [
+            _strip_accents(t)
+            for t in normalize(query).split()
+            if t not in _STOPWORDS and len(t) >= 3
+        ]
+        if not tokens:
+            return []
+
         results = []
+        for item in self.metadata:
+            haystack = _strip_accents(
+                " ".join([item["patois"], item["fr"], item["it"], item["comune"]])
+            ).lower()
+            if any(re.search(rf"\b{re.escape(tok)}\b", haystack) for tok in tokens):
+                results.append(item.copy())
+        return results
+
+    def retrieve(self, query: str, top_k: int = TOP_K) -> List[Dict[str, Any]]:
+        # Ricerca semantica (candidati allargati per dare spazio al merge)
+        sem_k = max(top_k * 3, 9)
+        scores, indices = self.index.search(self._embed(query), sem_k)
+        seen_ids: set = set()
+        semantic: List[Dict[str, Any]] = []
         for score, idx in zip(scores[0], indices[0]):
             if idx == -1:
                 continue
             item = self.metadata[idx].copy()
             item["score"] = float(score)
-            results.append(item)
-        return results
+            semantic.append(item)
+            seen_ids.add(item["id"])
+
+        # Ricerca keyword
+        kw_hits = {item["id"] for item in self._keyword_search(query)}
+
+        # Merge: prima i risultati che compaiono in entrambe le ricerche,
+        # poi quelli solo semantici, poi eventuali solo keyword (non in indice)
+        both   = [i for i in semantic if i["id"] in kw_hits]
+        sem_only = [i for i in semantic if i["id"] not in kw_hits]
+
+        merged = both + sem_only
+        # Aggiunge risultati puri keyword che non erano nei candidati semantici
+        for item in self.metadata:
+            if item["id"] in kw_hits and item["id"] not in seen_ids:
+                entry = item.copy()
+                entry["score"] = 0.0
+                merged.append(entry)
+
+        return merged[:top_k]
 
     def retrieve_vocab(self, query: str, top_k: int = VOCAB_TOP_K) -> List[Dict[str, Any]]:
         if self._vocab_index is None:

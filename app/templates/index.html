@@ -5,56 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Digourd-IA</title>
 
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json"/>
+  <meta name="theme-color" content="#84120c"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Digourd-IA"/>
+  <link rel="apple-touch-icon" href="/static/icon-192.png"/>
+  <link rel="icon" type="image/png" href="/static/icon-192.png"/>
+
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-  <script>
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            primary:                  "#84120c",
-            "on-primary":             "#ffffff",
-            "primary-container":      "#a62c21",
-            "on-primary-container":   "#ffc2b9",
-            secondary:                "#934b00",
-            "on-secondary":           "#ffffff",
-            "secondary-container":    "#fd9844",
-            "secondary-fixed":        "#ffdcc5",
-            "on-secondary-fixed":     "#301400",
-            "on-secondary-fixed-variant": "#703800",
-            tertiary:                 "#573b32",
-            "on-tertiary":            "#ffffff",
-            "tertiary-container":     "#715248",
-            "on-tertiary-container":  "#f1c7bb",
-            surface:                  "#fcf9f4",
-            "on-surface":             "#1c1c19",
-            "surface-variant":        "#e5e2dd",
-            "on-surface-variant":     "#59413e",
-            "surface-container":      "#f0ede8",
-            "surface-container-low":  "#f6f3ee",
-            "surface-container-high": "#ebe8e3",
-            "surface-container-lowest":"#ffffff",
-            "surface-container-highest":"#e5e2dd",
-            outline:                  "#8c716c",
-            "outline-variant":        "#e0bfba",
-            "inverse-surface":        "#31302d",
-            "inverse-on-surface":     "#f3f0eb",
-          },
-          fontFamily: {
-            serif:   ["Noto Serif", "serif"],
-            sans:    ["Manrope", "sans-serif"],
-            body:    ["Manrope", "sans-serif"],
-            headline:["Noto Serif", "serif"],
-          },
-        },
-      },
-    };
-  </script>
+  <!-- Tailwind (build locale) -->
+  <link rel="stylesheet" href="/static/tailwind.css"/>
 
   <link rel="stylesheet" href="/static/style.css"/>
   <style>
@@ -94,6 +60,19 @@
       <h1 id="greeting-title" class="text-4xl font-serif tracking-tight">Bondzor!</h1>
       <p id="greeting-sub" class="text-xl text-on-surface-variant font-serif italic">Cosa vuoi scoprire oggi?</p>
     </section>
+
+    <!-- Proverbio del giorno -->
+    <button id="daily-btn" onclick="loadDailyProverb()"
+            class="w-full flex items-center gap-4 bg-primary/8 hover:bg-primary/12 border border-primary/20 rounded-2xl px-5 py-4 text-left transition-all active:scale-[0.98] group">
+      <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+        <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1">wb_sunny</span>
+      </div>
+      <div>
+        <p id="daily-label" class="text-sm font-bold text-primary">Lo proverbe di dzor</p>
+        <p id="daily-sub" class="text-xs text-on-surface-variant mt-0.5">Il proverbio di oggi</p>
+      </div>
+      <span class="material-symbols-outlined text-on-surface-variant ml-auto">chevron_right</span>
+    </button>
 
     <!-- Quick chips -->
     <div id="quick-chips" class="flex flex-wrap gap-2">
@@ -282,5 +261,11 @@
 </div>
 
 <script src="/static/app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/static/sw.js")
+      .catch(err => console.warn("SW registration failed:", err));
+  }
+</script>
 </body>
 </html>
